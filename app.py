@@ -40,7 +40,6 @@ anthropic_client = None
 # STYLE GUIDE AND EXCERPTS
 ########################################
 
-# This style guide sets explicit instructions the LLM should follow to emulate the target voice and tone.
 style_guide = """
 When producing text, follow these instructions to achieve a voice and tone reminiscent of thoughtful long-form posts in alignment/rationalist communities:
 
@@ -79,9 +78,10 @@ When producing text, follow these instructions to achieve a voice and tone remin
 9. Show Genuine Engagement with Opposing or Uncertain Views:
    - “We’ve heard the argument that X is misguided; here’s why we remain cautiously optimistic…”
    - Propose how to monitor or address potential downsides.
+
+10. Try to keep "LLM"-y outputs to a minimum. Don't overuse headers or lists except where necessary. This is mainly prose with cogent argumentation to appeal to a highly rational, skeptical audience.
 """
 
-# An instructive excerpt that shows disclaimers, brief aside, communal voice, etc.
 instructive_excerpt = """
 Excerpt Demonstrating the Tone:
 \"We've been laying the groundwork for alignment policy in a Republican-controlled government. 
@@ -95,7 +95,8 @@ We suspect that some might disagree with this angle, but from our vantage point,
 # PROMPTS
 ########################################
 
-OUTLINE_SYSTEM = f"""You are a content planning assistant. 
+OUTLINE_SYSTEM = f"""
+You are a content planning assistant. 
 Generate a thorough, well-structured outline for a blog piece that covers the user's main argument and supplementary context.
 
 Remember to incorporate the style rules from the style_guide below:
@@ -108,6 +109,7 @@ INSTRUCTIONS:
 - Provide an outline with headings, bullet points, or short subheaders.
 - The outline should reflect the communal, slightly informal but knowledgeable voice.
 - Include disclaimers or qualifiers where appropriate.
+- Never wrap your output in backticks or code fences. Output only the outline text, with no extra disclaimers.
 """
 
 OUTLINE_USER = """Main Argument/Thesis:
@@ -119,7 +121,32 @@ Supplementary Materials:
 Generate an outline (headings, bullet points, etc.) that will serve as the skeleton for a long-form blog post. Ensure it is cohesive, addresses the main argument, and integrates the supplementary materials where appropriate.
 """
 
-BLOG_SYSTEM = f"""You are a blogging assistant. 
+OUTLINE_FEEDBACK_SYSTEM = f"""
+You are an outline revision assistant. 
+You will update the existing outline given user feedback. 
+Maintain as much of the original outline as possible unless the feedback requests changes.
+
+Remember to keep the style from the style_guide:
+{style_guide}
+
+Instructive excerpt:
+{instructive_excerpt}
+
+INSTRUCTIONS:
+- Output only the updated outline text, with no disclaimers or code fences.
+"""
+
+OUTLINE_FEEDBACK_USER = """ORIGINAL OUTLINE:
+{original_outline}
+
+USER FEEDBACK:
+{feedback}
+
+Update the outline accordingly, keeping the format intact but integrating the user's requested changes. Output only the revised outline.
+"""
+
+BLOG_SYSTEM = f"""
+You are a blogging assistant. 
 Write a full blog post in HTML, using the provided outline, that adheres to the style_guide below:
 {style_guide}
 
@@ -129,8 +156,8 @@ Instructive excerpt for reference:
 INSTRUCTIONS:
 - The final blog post must be detailed and coherent.
 - Incorporate the main argument and key points from the supplementary text.
-- Aim for ~2000 words total, using headings, paragraphs, lists, etc.
-- Keep the tone communal, slightly informal, and deeply knowledgeable.
+- Aim for ~2000 words total.
+- Output raw HTML only. No triple backticks, no disclaimers, no extra commentary before or after.
 """
 
 BLOG_USER = """Outline:
@@ -145,14 +172,18 @@ Supplementary Materials:
 Write the full blog post in HTML. Expand on all points. Be thorough and detailed.
 """
 
-FEEDBACK_SYSTEM = f"""You are a blogging assistant updating a blog post based on user feedback. 
+FEEDBACK_SYSTEM = f"""
+You are a blogging assistant updating a blog post based on user feedback. 
 Maintain the original structure and text as much as possible unless the feedback requests changes. 
-Continue following the style_guide:
 
+Continue following the style_guide:
 {style_guide}
 
 Here is an instructive excerpt that shows the target voice:
 {instructive_excerpt}
+
+INSTRUCTIONS:
+- Output only the updated blog post in raw HTML. No disclaimers, code fences, or extraneous commentary.
 """
 
 FEEDBACK_USER = """ORIGINAL BLOG:
@@ -161,7 +192,7 @@ FEEDBACK_USER = """ORIGINAL BLOG:
 USER FEEDBACK:
 {feedback}
 
-Update the blog accordingly. Keep the format as HTML. Incorporate all requested changes thoroughly without removing unmentioned content. The final result should read as a coherent whole.
+Update the blog accordingly. Keep the format as HTML. Incorporate all requested changes thoroughly without removing unmentioned content. Output only the updated HTML, nothing else.
 """
 
 ########################################
@@ -230,7 +261,8 @@ def main():
     llm_options = ["gpt-4o", "o1-mini", "o1-2024-12-17", "anthropic:claude"]
     outline_model = st.selectbox("Outline Model:", llm_options, index=0)
     blog_model = st.selectbox("Blog Model:", llm_options, index=0)
-    feedback_model = st.selectbox("Feedback Model:", llm_options, index=0)
+    feedback_model = st.selectbox("Blog Feedback Model:", llm_options, index=0)
+    outline_feedback_model = st.selectbox("Outline Feedback Model:", llm_options, index=0)
 
     if "generated_outline" not in st.session_state:
         st.session_state["generated_outline"] = ""
@@ -252,55 +284,63 @@ def main():
         else:
             with st.spinner("Generating Outline..."):
                 messages = [
-                    {
-                        "role": "system",
-                        "content": OUTLINE_SYSTEM
-                    },
-                    {
-                        "role": "user",
-                        "content": OUTLINE_USER.format(
-                            core_thesis=core_thesis,
-                            supplementary_materials=supplementary_materials
-                        )
-                    }
+                    {"role": "system", "content": OUTLINE_SYSTEM},
+                    {"role": "user", "content": OUTLINE_USER.format(
+                        core_thesis=core_thesis,
+                        supplementary_materials=supplementary_materials
+                    )}
                 ]
                 outline = run_completion(messages, outline_model)
                 st.session_state["generated_outline"] = outline
 
+    # Show Outline + Outline Feedback
     if st.session_state["generated_outline"]:
-        st.subheader("3. Edit/Finalize Outline")
-        edited_outline = st.text_area("Outline:", value=st.session_state["generated_outline"], height=400)
-        st.session_state["generated_outline"] = edited_outline
+        st.subheader("3. Current Outline")
+        st.text_area("Generated Outline:", value=st.session_state["generated_outline"], height=300, key="current_outline_display")
 
-        # Generate Blog
-        if st.button("Generate Blog From Outline"):
-            if not edited_outline.strip():
-                st.warning("Outline is empty. Please provide a valid outline.")
+        # Let user provide feedback on Outline
+        outline_feedback = st.text_area("Feedback on Outline (optional):", height=100)
+
+        if st.button("Incorporate Outline Feedback"):
+            if not outline_feedback.strip():
+                st.warning("Please enter some feedback to incorporate.")
             else:
-                with st.spinner("Generating Blog..."):
+                with st.spinner("Updating Outline..."):
                     messages = [
-                        {
-                            "role": "system",
-                            "content": BLOG_SYSTEM
-                        },
-                        {
-                            "role": "user",
-                            "content": BLOG_USER.format(
-                                outline=edited_outline,
-                                core_thesis=core_thesis,
-                                supplementary_materials=supplementary_materials
-                            )
-                        }
+                        {"role": "system", "content": OUTLINE_FEEDBACK_SYSTEM},
+                        {"role": "user", "content": OUTLINE_FEEDBACK_USER.format(
+                            original_outline=st.session_state["generated_outline"],
+                            feedback=outline_feedback
+                        )}
                     ]
-                    blog_post = run_completion(messages, blog_model)
-                    st.session_state["generated_blog"] = blog_post
+                    updated_outline = run_completion(messages, outline_feedback_model)
+                    st.session_state["generated_outline"] = updated_outline
+                st.success("Outline updated with feedback!")
+                st.experimental_rerun()
 
+    # Generate Blog
+    if st.session_state["generated_outline"]:
+        st.subheader("4. Generate the Blog From Outline")
+        if st.button("Generate Blog"):
+            with st.spinner("Generating Blog..."):
+                messages = [
+                    {"role": "system", "content": BLOG_SYSTEM},
+                    {"role": "user", "content": BLOG_USER.format(
+                        outline=st.session_state["generated_outline"],
+                        core_thesis=core_thesis,
+                        supplementary_materials=supplementary_materials
+                    )}
+                ]
+                blog_post = run_completion(messages, blog_model)
+                st.session_state["generated_blog"] = blog_post
+
+    # Show Blog + Blog Feedback
     if st.session_state["generated_blog"]:
-        st.subheader("4. Review or Edit the Blog")
+        st.subheader("5. Review or Edit the Blog")
         st.markdown("Below is the generated HTML. You can copy it or download it.")
+
         st.html(st.session_state["generated_blog"])
 
-        # Download button
         st.download_button(
             label="Download Blog as HTML",
             data=st.session_state["generated_blog"].encode("utf-8"),
@@ -310,29 +350,23 @@ def main():
 
         # Feedback / Update
         st.write("You can provide feedback and have the blog updated automatically below.")
-        feedback_text = st.text_area("Feedback:", height=100)
-        if st.button("Incorporate Feedback"):
+        feedback_text = st.text_area("Feedback on Blog:", height=100)
+        if st.button("Incorporate Blog Feedback"):
             if not feedback_text.strip():
                 st.warning("Please enter some feedback to incorporate.")
             else:
                 with st.spinner("Incorporating Feedback..."):
                     messages = [
-                        {
-                            "role": "system",
-                            "content": FEEDBACK_SYSTEM
-                        },
-                        {
-                            "role": "user",
-                            "content": FEEDBACK_USER.format(
-                                original_blog=st.session_state["generated_blog"],
-                                feedback=feedback_text
-                            )
-                        }
+                        {"role": "system", "content": FEEDBACK_SYSTEM},
+                        {"role": "user", "content": FEEDBACK_USER.format(
+                            original_blog=st.session_state["generated_blog"],
+                            feedback=feedback_text
+                        )}
                     ]
                     updated_blog = run_completion(messages, feedback_model)
                     st.session_state["generated_blog"] = updated_blog
                 st.success("Feedback Incorporated! See updated blog below.")
-                st.rerun()
+                st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
