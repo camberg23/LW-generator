@@ -186,7 +186,7 @@ def main():
         st.markdown("Below is the generated HTML. You can copy it or download it.")
 
         # Display the blog inline as HTML (no iframe)
-        st.html(st.session_state["generated_blog"], height=800, scrolling=True)
+        st.html(st.session_state["generated_blog"])
 
         # Download button
         st.download_button(
