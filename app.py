@@ -102,7 +102,7 @@ Main Argument/Thesis:
 Supplementary Materials:
 {supplementary_materials}
 
-Write the full blog post in HTML. Expand on all points. Be thorough and detailed.
+Write the full blog post in HTML. Expand on all points. Be thorough and detailed. do not include "```html" type strings
 """
 
 FEEDBACK_SYSTEM = """You are a blogging assistant updating a previously written blog post based on new user feedback. Retain as much of the original structure and text as possible unless changes are requested by the feedback."""
