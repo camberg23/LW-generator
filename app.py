@@ -6,7 +6,7 @@ import anthropic
 from openai import OpenAI
 
 ########################################
-# MODEL UTILS
+# MODEL HANDLING
 ########################################
 
 def is_o1_model(m):
@@ -22,19 +22,47 @@ def adjust_messages_for_o1(messages):
     adjusted = []
     for msg in messages:
         if msg["role"] == "system":
+            # Convert to user
             content = "INSTRUCTIONS:\n" + msg["content"]
             adjusted.append({"role": "user", "content": content})
         else:
             adjusted.append(msg)
     return adjusted
 
-def run_completion(messages, model, openai_client, anthropic_client, verbose=False):
-    if is_o1_model(model) or is_gpt4o_model(model):
-        # For O1 and GPT-4o models via openai
-        if is_o1_model(model):
-            messages = adjust_messages_for_o1(messages)
+########################################
+# GLOBAL CLIENTS
+########################################
+
+# We'll assume you're placing these here. 
+# If you prefer them inside main(), just move them accordingly.
+openai_client = None
+anthropic_client = None
+
+########################################
+# COMPLETION FUNCTION
+########################################
+
+def run_completion(messages, model, verbose=False):
+    """Handles chat completions for O1, GPT-4o, or Anthropic models."""
+    if is_o1_model(model):
+        # O1
+        adjusted = adjust_messages_for_o1(messages)
         if verbose:
-            st.write(f"**Using OpenAI Model:** {model}")
+            st.write("**Using O1 Model:**", model)
+            st.write("**Messages:**", adjusted)
+        completion = openai_client.chat.completions.create(
+            model=model,
+            messages=adjusted
+        )
+        response = completion.choices[0].message.content
+        if verbose:
+            st.write("**Response:**", response)
+        return response
+
+    elif is_gpt4o_model(model):
+        # GPT-4o
+        if verbose:
+            st.write("**Using GPT-4o Model:**", model)
             st.write("**Messages:**", messages)
         completion = openai_client.chat.completions.create(
             model=model,
@@ -44,39 +72,34 @@ def run_completion(messages, model, openai_client, anthropic_client, verbose=Fal
         if verbose:
             st.write("**Response:**", response)
         return response
+
     elif is_anthropic_model(model):
-        # For Anthropic
+        # Anthropic
         if verbose:
-            st.write(f"**Using Anthropic Model:** {model}")
+            st.write("**Using Anthropic Model:**", model)
             st.write("**Messages:**", messages)
         system_str_list = [m["content"] for m in messages if m["role"] == "system"]
         user_assistant_msgs = [m for m in messages if m["role"] != "system"]
         system_str = "\n".join(system_str_list) if system_str_list else None
-        # Example usage of anthropic for a Claude model
-        # Adjust model parameter to match your environment
+
+        # We'll use your known snippet that worked for you
         kwargs = {
-            "model": "claude-instant-1",
-            "max_tokens_to_sample": 1000,
-            "messages": []
+            "model": "claude-3-5-sonnet-20241022",  # or claude-instant-1, etc
+            "max_tokens": 1000,
+            "messages": user_assistant_msgs
         }
-        # Anthropic expects user->assistant->user->assistant...
-        # We'll place the system text at the top, then alternate user/assistant from messages
-        full_convo = ""
         if system_str:
-            full_convo += f"{anthropic.HUMAN_PROMPT}System: {system_str}{anthropic.AI_PROMPT}"
-        for m in user_assistant_msgs:
-            if m["role"] == "user":
-                full_convo += f"{anthropic.HUMAN_PROMPT}{m['content']}"
-            else:
-                full_convo += f"{anthropic.AI_PROMPT}{m['content']}"
-        full_convo += anthropic.AI_PROMPT
-        kwargs["prompt"] = full_convo
-        response = anthropic_client.completions.create(**kwargs)
+            kwargs["system"] = system_str
+
+        response = anthropic_client.messages.create(**kwargs)
+        # This returns .content which is a list of Message objects. We just pick [0].text:
+        reply = response.content[0].text
         if verbose:
-            st.write("**Response:**", response.completion)
-        return response.completion.strip()
+            st.write("**Response:**", reply)
+        return reply.strip()
+
     else:
-        return "Unsupported model: " + model
+        return f"Unsupported model: {model}"
 
 ########################################
 # PROMPTS
@@ -102,7 +125,7 @@ Main Argument/Thesis:
 Supplementary Materials:
 {supplementary_materials}
 
-Write the full blog post in HTML. Expand on all points. Be thorough and detailed. do not include "```html" type strings
+Write the full blog post in HTML. Expand on all points. Be thorough and detailed.
 """
 
 FEEDBACK_SYSTEM = """You are a blogging assistant updating a previously written blog post based on new user feedback. Retain as much of the original structure and text as possible unless changes are requested by the feedback."""
@@ -120,17 +143,19 @@ Update the blog accordingly. Keep the format as HTML. Incorporate all requested 
 ########################################
 
 def main():
+    global openai_client, anthropic_client
+
     st.title("AI Alignment Blog Generator")
+
+    # Initialize clients (if not done globally)
+    openai_client = OpenAI(api_key=st.secrets['API_KEY'])
+    anthropic_client = anthropic.Anthropic(api_key=st.secrets['ANTHROPIC_API_KEY'])
 
     # LLM selection
     llm_options = ["gpt-4o", "o1-mini", "o1-2024-12-17", "anthropic:claude"]
     outline_model = st.selectbox("Outline Model:", llm_options, index=0)
     blog_model = st.selectbox("Blog Model:", llm_options, index=0)
     feedback_model = st.selectbox("Feedback Model:", llm_options, index=0)
-
-    # Initialize clients
-    openai_client = OpenAI(api_key=st.secrets['API_KEY'])
-    anthropic_client = anthropic.Anthropic(api_key=st.secrets['ANTHROPIC_API_KEY'])
 
     # Session states
     if "generated_outline" not in st.session_state:
@@ -154,9 +179,12 @@ def main():
             with st.spinner("Generating Outline..."):
                 messages = [
                     {"role": "system", "content": OUTLINE_SYSTEM},
-                    {"role": "user", "content": OUTLINE_USER.format(core_thesis=core_thesis, supplementary_materials=supplementary_materials)}
+                    {"role": "user", "content": OUTLINE_USER.format(
+                        core_thesis=core_thesis,
+                        supplementary_materials=supplementary_materials
+                    )}
                 ]
-                outline = run_completion(messages, outline_model, openai_client, anthropic_client)
+                outline = run_completion(messages, outline_model)
                 st.session_state["generated_outline"] = outline
 
     if st.session_state["generated_outline"]:
@@ -178,15 +206,13 @@ def main():
                             supplementary_materials=supplementary_materials
                         )}
                     ]
-                    blog_post = run_completion(messages, blog_model, openai_client, anthropic_client)
+                    blog_post = run_completion(messages, blog_model)
                     st.session_state["generated_blog"] = blog_post
 
     if st.session_state["generated_blog"]:
         st.subheader("4. Review or Edit the Blog")
         st.markdown("Below is the generated HTML. You can copy it or download it.")
-
-        # Display the blog inline as HTML (no iframe)
-        st.html(st.session_state["generated_blog"])
+        st.html(st.session_state["generated_blog"], height=800, scrolling=True)
 
         # Download button
         st.download_button(
@@ -211,7 +237,7 @@ def main():
                             feedback=feedback_text
                         )}
                     ]
-                    updated_blog = run_completion(messages, feedback_model, openai_client, anthropic_client)
+                    updated_blog = run_completion(messages, feedback_model)
                     st.session_state["generated_blog"] = updated_blog
                 st.success("Feedback Incorporated! See updated blog below.")
                 st.rerun()
