@@ -298,7 +298,7 @@ def main():
     if st.session_state["generated_blog"]:
         st.subheader("4. Review or Edit the Blog")
         st.markdown("Below is the generated HTML. You can copy it or download it.")
-        st.html(st.session_state["generated_blog"], height=800, scrolling=True)
+        st.html(st.session_state["generated_blog"])
 
         # Download button
         st.download_button(
