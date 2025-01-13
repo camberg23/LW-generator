@@ -49,31 +49,35 @@ When producing text, follow these instructions to achieve a voice and tone remin
 
 2. Use Subtle Disclaimers and Qualifiers:
    - “We suspect…,” “We’re still exploring…,” “We might be missing something here,” or “Others may disagree.”  
-   - Keep these brief.
+   - Keep these brief, but present.
 
 3. Weave in Small, Parenthetical Asides:
-   - Short side remarks to express self-deprecating humor or tangential points.
+   - Short side remarks for self-deprecating humor or tangential points.
 
-4. Organize with Section Headers:
-   - For the outline, only use single `#` headings. Do NOT create subheadings with `##`.
+4. Organize with Heading + Rich Detail:
+   - For each heading line, use exactly `# ` (no `##` or `###`).
+   - Under each heading, you can provide multiple paragraphs, bullet lists, enumerations, or other expansions for sub-points. 
+   - The result should be comprehensive, not just 1-3 lines.
 
-5. Be Collegial, Pragmatic, Lightly Optimistic:
-   - Show hope or positivity while recognizing difficulty.
+5. Collegial, Pragmatic Optimism:
+   - Show hope for solutions while recognizing difficulties.
 
-6. Include Compact Examples and References:
-   - Short real-world/historical references.
+6. Use Examples and References:
+   - Keep them concise but illustrative.
 
-7. Technical Depth + Accessibility:
-   - Enough detail for specialists, but define jargon for general readers.
+7. Combine Technical Depth + Accessibility:
+   - Enough detail for specialists, but explain jargon as needed.
 
-8. Occasional Mild Wit or Personal Touch:
-   - A bit of playful phrasing is fine.
+8. Mild Wit/Personal Touch is Fine:
+   - Substance first, but a bit of warmth or playful phrasing is welcome.
 
 9. Engage Opposing/Uncertain Views:
    - Note how you’d address or monitor potential downsides.
 
 10. Minimal “LLM-y” Output:
-   - Mostly plain text with top-level headings for the outline. For the blog, output raw HTML section by section.
+   - Just a plain outline with `#` headings and rich sub-points in paragraphs or bullet points.
+
+Remember: Each major heading line MUST start with `# ` and no further hash marks. Under it, you can have all the detail you want (paragraphs, bullet points, etc.).
 """
 
 instructive_excerpt = """
@@ -91,28 +95,23 @@ We suspect that some might disagree with this angle, but from our vantage point,
 
 OUTLINE_SYSTEM = f"""
 You are a content planning assistant. 
-Generate an outline for a blog post with ONLY top-level headings, each prefixed by a single '#' followed by a space. 
-After each heading, include 1-3 sentences describing what's in that section.
+Generate a comprehensive outline for a long-form blog post using ONLY top-level headings, each line starting with '# ' (a single hash and a space).
 
-For example:
-# Introduction
-Brief text describing the intro
+Under each heading:
+- Provide multiple paragraphs, bullet lists, enumerations, or detailed expansions for subpoints (but do NOT use additional '#' symbols).
+- Aim for a thorough, multi-section structure (~5-9 headings).
+- The style_guide indicates we want a robust, detailed approach, so feel free to add depth and sub-points as bullets or paragraphs.
 
-# Key Arguments
-One or two lines explaining the focus
-
-And so on...
-
-Follow the style rules from the style_guide below:
+Style_guide:
 {style_guide}
 
 Instructive excerpt:
 {instructive_excerpt}
 
 INSTRUCTIONS:
-- Only create ~5-7 major headings. No subheadings with '##' or '###'.
-- After each heading, provide a short descriptive paragraph.
-- Output only the outline text. No disclaimers, no code fences, no extra commentary.
+- Output only the outline text. No disclaimers, code fences, or extra commentary.
+- Each heading line = '# Some Title'
+- Sub-points or expansions go under that heading as normal text, bullets, paragraphs, etc.
 """
 
 OUTLINE_USER = """Main Argument/Thesis:
@@ -121,15 +120,15 @@ OUTLINE_USER = """Main Argument/Thesis:
 Supplementary Materials:
 {supplementary_materials}
 
-Please create an outline with ~5-7 major headings. Each heading line starts with "# " (no subheadings).
-Under each heading, write a short descriptive paragraph (1-3 sentences). 
-No disclaimers or code fences. Keep it minimal.
+Please produce a comprehensive outline with multiple major headings (5-9). Each heading line must begin with "# ".
+Below each heading, include rich detail: multiple paragraphs, bullet lists, enumerations, etc.
+No disclaimers or code fences, just the raw outline text.
 """
 
 OUTLINE_FEEDBACK_SYSTEM = f"""
 You are an outline revision assistant. 
 You will update the existing outline given user feedback. 
-The outline must keep the same format: Only lines starting with "# " for headings, followed by 1-3 lines of descriptive text.
+Outline must keep the same top-level heading format: each heading line starts with '# ', and no sub-headers with '##'.
 
 Style_guide:
 {style_guide}
@@ -138,8 +137,9 @@ Instructive excerpt:
 {instructive_excerpt}
 
 INSTRUCTIONS:
-- Retain or modify the existing headings and text as needed.
-- No disclaimers or extra commentary. Output just the updated outline text.
+- Keep or modify headings as needed, but do not introduce secondary '#' lines.
+- Retain or expand the bullet points, paragraphs, etc. to remain comprehensive.
+- Output only the updated outline, with no disclaimers or code fences.
 """
 
 OUTLINE_FEEDBACK_USER = """ORIGINAL OUTLINE:
@@ -148,43 +148,12 @@ OUTLINE_FEEDBACK_USER = """ORIGINAL OUTLINE:
 USER FEEDBACK:
 {feedback}
 
-Update the outline accordingly, preserving the single '#' heading style. Output only the updated outline.
+Revise the outline accordingly. Each heading starts with "# ", and the detail can be multiple paragraphs or bullets. Output only the updated outline text.
 """
 
 BLOG_SECTION_SYSTEM = f"""
-You are a blogging assistant writing a blog piece in multiple sections, one section at a time in raw HTML.
-
-Style guide:
-{style_guide}
-
-Instructive excerpt:
-{instructive_excerpt}
-
-INSTRUCTIONS:
-- You have a partial blog so far in HTML. You must add the next section in raw HTML.
-- Each top-level heading from the outline is processed in order. 
-- Output only the new section in HTML, no disclaimers or code fences, no reprinting the old sections.
-- The total blog should be around 2000 words, so each section is substantive.
-"""
-
-BLOG_SECTION_USER = """Partial blog so far:
-{partial_blog}
-
-Current heading to write (with its short description):
-{section_heading}
-
-Main Argument/Thesis:
-{core_thesis}
-
-Supplementary Materials:
-{supplementary_materials}
-
-Write this entire section in HTML, continuing the blog. Only output this section's HTML, no disclaimers or code fences.
-"""
-
-FEEDBACK_SYSTEM = f"""
-You are a blogging assistant updating the final assembled blog post based on user feedback. 
-Maintain original structure unless feedback requests changes.
+You are a blogging assistant writing a blog piece in multiple sections (one for each top-level heading). 
+You'll output raw HTML for each section.
 
 Style_guide:
 {style_guide}
@@ -193,7 +162,40 @@ Instructive excerpt:
 {instructive_excerpt}
 
 INSTRUCTIONS:
-- Output only the updated blog in raw HTML. No disclaimers, code fences, or extra commentary.
+- You have a partial blog so far in HTML. 
+- You must write the next section in raw HTML (no disclaimers, no code fences).
+- Because each heading is top-level only, each heading chunk from the outline is its own section.
+- Add enough substance for each section so the final blog is around 2000 words total.
+"""
+
+BLOG_SECTION_USER = """Partial blog so far:
+{partial_blog}
+
+Current heading + sub-points from outline:
+{section_heading}
+
+Main Argument/Thesis:
+{core_thesis}
+
+Supplementary Materials:
+{supplementary_materials}
+
+Write this section in HTML, continuing the blog. 
+Output only this section's HTML (no disclaimers or code fences).
+"""
+
+FEEDBACK_SYSTEM = f"""
+You are a blogging assistant updating the final assembled blog post based on user feedback. 
+Keep the structure unless feedback requests changes.
+
+Style_guide:
+{style_guide}
+
+Instructive excerpt:
+{instructive_excerpt}
+
+INSTRUCTIONS:
+- Output only the updated blog in raw HTML. No disclaimers, code fences, or other commentary.
 """
 
 FEEDBACK_USER = """ORIGINAL BLOG:
@@ -202,7 +204,7 @@ FEEDBACK_USER = """ORIGINAL BLOG:
 USER FEEDBACK:
 {feedback}
 
-Update the blog accordingly, preserving the existing HTML structure. Output only the updated HTML, nothing else.
+Update the blog accordingly, preserving the existing HTML structure unless changes are requested. Output only the updated HTML, nothing else.
 """
 
 ########################################
@@ -260,9 +262,9 @@ def run_completion(messages, model, verbose=False):
 
 def parse_outline_into_sections(outline_text):
     """
-    We only want headings that start with "# " exactly.
-    We treat the heading line + subsequent lines as one "section block"
-    until the next heading line is found.
+    We only want headings that start with "# ".
+    We'll treat each heading and its subsequent lines as a single "section block"
+    until we hit the next heading line starting with "# ".
     """
     lines = outline_text.splitlines()
     sections = []
@@ -270,7 +272,6 @@ def parse_outline_into_sections(outline_text):
     current_content = []
 
     def add_section(heading, content):
-        # Combine heading & its descriptive lines
         heading_plus_content = heading
         if content:
             heading_plus_content += "\n" + "\n".join(content)
@@ -286,12 +287,12 @@ def parse_outline_into_sections(outline_text):
         else:
             current_content.append(line)
 
-    # Last chunk
+    # last chunk
     if current_heading or current_content:
         sections.append(add_section(current_heading, current_content))
 
     if not sections:
-        # fallback to entire text
+        # fallback: entire outline
         sections = [outline_text]
     return sections
 
@@ -325,10 +326,10 @@ def main():
         st.session_state["generated_blog"] = ""
 
     st.subheader("1. Enter Core Argument/Thesis")
-    core_thesis = st.text_area("Core Argument/Thesis:", height=120)
+    core_thesis = st.text_area("Core Argument/Thesis:", height=100)
 
     st.subheader("2. Enter Supplementary Materials")
-    supplementary_materials = st.text_area("Supplementary Materials:", height=120)
+    supplementary_materials = st.text_area("Supplementary Materials:", height=100)
 
     st.write("Both fields above must be filled before generating an outline.")
 
@@ -352,8 +353,8 @@ def main():
 
     # Show Outline + Outline Feedback
     if st.session_state["generated_outline"]:
-        st.subheader("3. Current Outline (Top-Level Headings Only)")
-        st.text_area("Generated Outline:", value=st.session_state["generated_outline"], height=300, key="current_outline_display")
+        st.subheader("3. Current Outline (Top-Level Headings + Rich Detail)")
+        st.text_area("Generated Outline:", value=st.session_state["generated_outline"], height=350, key="current_outline_display")
 
         # Let user provide feedback on Outline
         outline_feedback = st.text_area("Feedback on Outline (optional):", height=80)
@@ -381,6 +382,7 @@ def main():
     if st.session_state["generated_outline"]:
         st.subheader("4. Generate the Blog (One Heading at a Time)")
 
+        # parse outline into sections
         st.session_state["outline_sections"] = parse_outline_into_sections(st.session_state["generated_outline"])
 
         if st.button("Generate All Sections in Order"):
@@ -401,7 +403,9 @@ def main():
                     st.session_state["blog_sections"].append(section_html)
                     partial_blog += section_html
 
-                    st.markdown(f"**Section {i+1}**: {section_heading.split('# ',1)[-1]}")
+                    # Show user the new section
+                    section_title = section_heading.split("# ",1)[-1]
+                    st.markdown(f"**Section {i+1}**: {section_title}")
                     st.html(section_html)
                     st.write("---")
                     time.sleep(1)
