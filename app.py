@@ -79,10 +79,6 @@ When producing text, follow these instructions to achieve a voice and tone remin
 9. Show Genuine Engagement with Opposing or Uncertain Views:
    - “We’ve heard the argument that X is misguided; here’s why we remain cautiously optimistic…”
    - Propose how to monitor or address potential downsides.
-
-10. Conclude with an Invitation to Collaborate or Reflect:
-   - End by inviting further thoughts, iteration, or group discussion.
-   - “We encourage readers to share their perspectives…,” etc.
 """
 
 # An instructive excerpt that shows disclaimers, brief aside, communal voice, etc.
