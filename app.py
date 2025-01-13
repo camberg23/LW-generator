@@ -1,3 +1,5 @@
+# alignment_blog_app.py
+
 import streamlit as st
 import re
 import anthropic
@@ -53,13 +55,12 @@ def run_completion(messages, model, openai_client, anthropic_client, verbose=Fal
         # Example usage of anthropic for a Claude model
         # Adjust model parameter to match your environment
         kwargs = {
-            "model": "claude-instant-1",  
+            "model": "claude-instant-1",
             "max_tokens_to_sample": 1000,
             "messages": []
         }
         # Anthropic expects user->assistant->user->assistant...
-        # So we create a string combining them, but let's keep it simple:
-        # We'll place system at the top, then alternate user/assistant from messages
+        # We'll place the system text at the top, then alternate user/assistant from messages
         full_convo = ""
         if system_str:
             full_convo += f"{anthropic.HUMAN_PROMPT}System: {system_str}{anthropic.AI_PROMPT}"
@@ -184,8 +185,8 @@ def main():
         st.subheader("4. Review or Edit the Blog")
         st.markdown("Below is the generated HTML. You can copy it or download it.")
 
-        # Display the blog as rendered HTML
-        st.components.v1.html(st.session_state["generated_blog"], height=800, scrolling=True)
+        # Display the blog inline as HTML (no iframe)
+        st.html(st.session_state["generated_blog"], height=800, scrolling=True)
 
         # Download button
         st.download_button(
@@ -213,7 +214,7 @@ def main():
                     updated_blog = run_completion(messages, feedback_model, openai_client, anthropic_client)
                     st.session_state["generated_blog"] = updated_blog
                 st.success("Feedback Incorporated! See updated blog below.")
-                st.experimental_rerun()
+                st.rerun()
 
 if __name__ == "__main__":
     main()
