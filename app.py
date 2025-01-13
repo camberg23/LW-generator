@@ -316,7 +316,7 @@ def main():
                     updated_outline = run_completion(messages, outline_feedback_model)
                     st.session_state["generated_outline"] = updated_outline
                 st.success("Outline updated with feedback!")
-                st.experimental_rerun()
+                st.rerun()
 
     # Generate Blog
     if st.session_state["generated_outline"]:
@@ -366,7 +366,7 @@ def main():
                     updated_blog = run_completion(messages, feedback_model)
                     st.session_state["generated_blog"] = updated_blog
                 st.success("Feedback Incorporated! See updated blog below.")
-                st.experimental_rerun()
+                st.rerun()
 
 if __name__ == "__main__":
     main()
