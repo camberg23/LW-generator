@@ -201,6 +201,7 @@ def run_completion(messages, model, verbose=False):
 
         kwargs = {
             "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 10000,
             "messages": user_assistant_msgs
         }
         if system_str:
